@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第一人称射击小游戏</title>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Microsoft YaHei",sans-serif;
+}
+body{
+    background:#2c303a;
+    color:#fff;
+    text-align:center;
+    overflow:hidden;
+}
+.tip{
+    font-size:18px;
+    color:#b0b8c4;
+    margin-bottom:10px;
+}
+.info-bar{
+    display:flex;
+    justify-content:center;
+    gap:50px;
+    font-size:22px;
+    padding:10px 0;
+    background:#1a222c;
+}
+#gameCanvas{
+    background:#000;
+    cursor:none;
+    display:block;
+}
+button{
+    padding:10px 26px;
+    font-size:16px;
+    background:#2196F3;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    margin:0 8px;
+}
+button:hover{
+    background:#0b7dda;
+}
+.back-btn{
+    display:inline-block;
+    margin-top:30px;
+    padding:10px 24px;
+    background:#2196F3;
+    color:#fff;
+    text-decoration:none;
+    border-radius:8px;
+    font-size:16px;
+}
+.back-btn:hover{
+    background:#0b7dda;
+}
+/* 难度选择界面 */
+.diff-page{
+    padding-top:150px;
+}
+.diff-page h2{
+    font-size:42px;
+    margin-bottom:40px;
+}
+.diff-btn-group{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    align-items:center;
+}
+.diff-btn{
+    width:260px;
+    padding:14px;
+    font-size:20px;
+}
+/* 结算结束页面 */
+.end-page{
+    display:none;
+    padding-top:120px;
+}
+.end-page h2{
+    font-size:48px;
+    color:#4cd964;
+    margin-bottom:20px;
+}
+.final-score{
+    font-size:28px;
+    margin-bottom:25px;
+}
+.rank-title{
+    font-size:24px;
+    margin:30px 0 15px;
+}
+.rank-list{
+    width:300px;
+    margin:0 auto;
+    font-size:20px;
+    text-align:left;
+    padding-left:80px;
+}
+.rank-item{
+    margin:8px 0;
+}
+/* 游戏主界面容器 */
+.game-wrap{
+    display:none;
+}
+</style>
+</head>
+<body>
+<!-- 难度选择页面 -->
+<div class="diff-page" id="diffPage">
+    <h2>选择游戏难度</h2>
+    <div class="diff-btn-group">
+        <button class="diff-btn" data-level="1">Lv1 简单</button>
+        <button class="diff-btn" data-level="2">Lv2 普通</button>
+        <button class="diff-btn" data-level="3">Lv3 困难</button>
+        <button class="diff-btn" data-level="4">Lv4 专家（靶标限时消失）</button>
+        <button class="diff-btn" data-level="5">Lv5 地狱（靶标快速消失）</button>
+    </div>
+    <a href="../" class="back-btn" style="margin-top:50px;">返回游戏大厅</a>
+</div>
+
+<!-- 游戏主界面 -->
+<div class="game-wrap" id="gameWrap">
+    <div class="info-bar">
+        <div>得分：<span id="score">0</span></div>
+        <div>剩余时间：<span id="time">90</span>s</div>
+        <div>当前难度：Lv<span id="nowLevel">1</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- 结算结束页面 -->
+<div class="end-page" id="endPage">
+    <h2>TIME UP！射击结束</h2>
+    <div class="final-score">本局得分：<span id="finalScore">0</span></div>
+    <button id="restartBtn">重新选难度开局</button>
+    <a href="../" class="back-btn">返回大厅</a>
+    <div class="rank-title">历史排行榜(前5)</div>
+    <div class="rank-list" id="rankList"></div>
+</div>
+
+<script>
+// 全局常量
+const GAME_TIME = 90;
+const SCORE_PER_HIT = 100;
+const STORAGE_KEY = "shootGameRank";
+const TARGET_MIN_SIZE = 30;
+const TARGET_MAX_SIZE = 60;
+
+// 难度配置 1~5级
+const diffConfig = [
+    {},
+    { spawnGap:1200, maxTarget:3, autoDisappear:false, liveTime:0 }, // Lv1
+    { spawnGap:950,  maxTarget:4, autoDisappear:false, liveTime:0 }, // Lv2
+    { spawnGap:700,  maxTarget:6, autoDisappear:false, liveTime:0 }, // Lv3
+    { spawnGap:520,  maxTarget:8, autoDisappear:true, liveTime:2200 },//Lv4
+    { spawnGap:380,  maxTarget:10,autoDisappear:true, liveTime:1400 } //Lv5
+];
+
+// DOM
+const diffPage = document.getElementById("diffPage");
+const gameWrap = document.getElementById("gameWrap");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const scoreDom = document.getElementById("score");
+const timeDom = document.getElementById("time");
+const levelDom = document.getElementById("nowLevel");
+const endPage = document.getElementById("endPage");
+const finalScoreDom = document.getElementById("finalScore");
+const rankListDom = document.getElementById("rankList");
+const restartBtn = document.getElementById("restartBtn");
+const diffBtns = document.querySelectorAll(".diff-btn");
+
+// 游戏变量
+let score = 0;
+let timeLeft = GAME_TIME;
+let gameRunning = false;
+let gameTimer = null;
+let spawnTimer = null;
+let mouseX = 0;
+let mouseY = 0;
+let targetList = [];
+let currentLevel = 1;
+let cfg = diffConfig[1];
+
+// 全屏画布适配
+function resizeCanvas(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 46;
+}
+window.addEventListener("resize", resizeCanvas);
+
+// 靶标类（新增自动消失计时器）
+class Target {
+    constructor() {
+        this.size = TARGET_MIN_SIZE + Math.random() * (TARGET_MAX_SIZE - TARGET_MIN_SIZE);
+        this.x = Math.random() * (canvas.width - this.size);
+        this.y = Math.random() * (canvas.height - this.size);
+        this.createTime = Date.now();
+    }
+    // 判断是否超时消失
+    isTimeout(){
+        if(!cfg.autoDisappear) return false;
+        return Date.now() - this.createTime > cfg.liveTime;
+    }
+}
+
+// 绘制十字准星
+function drawCrosshair() {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    const crossLen = 12;
+    ctx.beginPath();
+    ctx.moveTo(mouseX - crossLen, mouseY);
+    ctx.lineTo(mouseX + crossLen, mouseY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(mouseX, mouseY - crossLen);
+    ctx.lineTo(mouseX, mouseY + crossLen);
+    ctx.stroke();
+}
+
+// 绘制所有靶标，过滤超时靶标
+function drawTargets() {
+    ctx.fillStyle = "#ff3333";
+    for(let i = targetList.length - 1; i >= 0; i--){
+        const t = targetList[i];
+        if(t.isTimeout()){
+            targetList.splice(i,1);
+            continue;
+        }
+        ctx.fillRect(t.x, t.y, t.size, t.size);
+    }
+}
+
+// 生成新靶标
+function spawnTarget() {
+    if (!gameRunning) return;
+    targetList.push(new Target());
+    if (targetList.length > cfg.maxTarget) targetList.shift();
+}
+
+// 射击判定
+function shoot() {
+    if (!gameRunning) return;
+    for (let i = targetList.length - 1; i >= 0; i--) {
+        const t = targetList[i];
+        if (mouseX >= t.x && mouseX <= t.x + t.size && mouseY >= t.y && mouseY <= t.y + t.size) {
+            score += SCORE_PER_HIT;
+            scoreDom.textContent = score;
+            targetList.splice(i, 1);
+            break;
+        }
+    }
+}
+
+// 游戏渲染循环
+function renderLoop() {
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawTargets();
+    drawCrosshair();
+    requestAnimationFrame(renderLoop);
+}
+
+// 倒计时
+function startCountDown() {
+    gameTimer = setInterval(() => {
+        timeLeft--;
+        timeDom.textContent = timeLeft;
+        if (timeLeft <= 0) gameOver();
+    }, 1000);
+}
+
+// 生成靶标循环
+function startSpawnLoop() {
+    spawnTimer = setInterval(spawnTarget, cfg.spawnGap);
+}
+
+// 游戏结束
+function gameOver() {
+    gameRunning = false;
+    clearInterval(gameTimer);
+    clearInterval(spawnTimer);
+    saveScoreToRank(score);
+    finalScoreDom.textContent = score;
+    gameWrap.style.display = "none";
+    endPage.style.display = "block";
+    renderRank();
+}
+
+// 读取排行榜
+function getRankData() {
+    const str = localStorage.getItem(STORAGE_KEY);
+    return str ? JSON.parse(str) : [];
+}
+
+// 保存分数，保留前5名
+function saveScoreToRank(newScore) {
+    let arr = getRankData();
+    arr.push(newScore);
+    arr.sort((a, b) => b - a);
+    arr = arr.slice(0, 5);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+// 渲染排行榜
+function renderRank() {
+    const arr = getRankData();
+    rankListDom.innerHTML = "";
+    if (arr.length === 0) {
+        rankListDom.innerHTML = "<div class='rank-item'>暂无射击记录</div>";
+        return;
+    }
+    arr.forEach((s, idx) => {
+        let div = document.createElement("div");
+        div.className = "rank-item";
+        div.textContent = `第${idx + 1}名：${s} 分`;
+        rankListDom.appendChild(div);
+    });
+}
+
+// 重置开局（指定难度）
+function startGame(level) {
+    currentLevel = level;
+    cfg = diffConfig[level];
+    score = 0;
+    timeLeft = GAME_TIME;
+    targetList = [];
+    scoreDom.textContent = score;
+    timeDom.textContent = timeLeft;
+    levelDom.textContent = level;
+
+    diffPage.style.display = "none";
+    endPage.style.display = "none";
+    gameWrap.style.display = "block";
+    resizeCanvas();
+
+    gameRunning = true;
+    startCountDown();
+    startSpawnLoop();
+}
+
+// 鼠标移动追踪准星
+canvas.addEventListener("mousemove", e => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+// 鼠标左键射击
+canvas.addEventListener("mousedown", e => {
+    if (e.button === 0) shoot();
+});
+
+// 难度按钮绑定
+diffBtns.forEach(btn=>{
+    btn.addEventListener("click",()=>{
+        const lv = Number(btn.dataset.level);
+        startGame(lv);
+    })
+})
+
+// 返回选难度
+restartBtn.addEventListener("click", ()=>{
+    diffPage.style.display = "block";
+    endPage.style.display = "none";
+})
+
+window.onload = () => {
+    resizeCanvas();
+    renderLoop();
+};
+</script>
+</body>
+</html>
