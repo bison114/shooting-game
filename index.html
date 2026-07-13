@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>第一人称射击小游戏</title>
+<title>猜数字小游戏</title>
 <style>
 *{
     margin:0;
@@ -15,42 +15,61 @@ body{
     background:#2c303a;
     color:#fff;
     text-align:center;
-    overflow:hidden;
+    padding:40px 15px;
 }
-.tip{
+.container{
+    max-width:500px;
+    margin:0 auto;
+}
+h1{
+    font-size:36px;
+    margin-bottom:20px;
+}
+.tip-text{
     font-size:18px;
     color:#b0b8c4;
     margin-bottom:10px;
+    line-height:1.6;
 }
-.info-bar{
-    display:flex;
-    justify-content:center;
-    gap:50px;
-    font-size:22px;
-    padding:10px 0;
-    background:#1a222c;
+.range-text{
+    font-size:20px;
+    color:#4cd964;
+    margin-bottom:25px;
+    font-weight:bold;
 }
-#gameCanvas{
-    background:#000;
-    cursor:none;
-    display:block;
+.input-box{
+    margin:20px 0;
+}
+input{
+    width:70%;
+    padding:12px 16px;
+    font-size:18px;
+    border:none;
+    border-radius:8px;
+    outline:none;
 }
 button{
-    padding:10px 26px;
-    font-size:16px;
+    margin-top:15px;
+    padding:12px 30px;
+    font-size:18px;
     background:#2196F3;
     color:#fff;
     border:none;
     border-radius:8px;
     cursor:pointer;
-    margin:0 8px;
+    transition:0.2s;
 }
 button:hover{
     background:#0b7dda;
 }
+#hint{
+    font-size:22px;
+    margin:25px 0;
+    min-height:30px;
+}
 .back-btn{
     display:inline-block;
-    margin-top:30px;
+    margin-top:40px;
     padding:10px 24px;
     background:#2196F3;
     color:#fff;
@@ -61,325 +80,156 @@ button:hover{
 .back-btn:hover{
     background:#0b7dda;
 }
-/* 难度选择界面 */
-.diff-page{
-    padding-top:150px;
-}
-.diff-page h2{
-    font-size:42px;
-    margin-bottom:40px;
-}
-.diff-btn-group{
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-    align-items:center;
-}
-.diff-btn{
-    width:260px;
-    padding:14px;
-    font-size:20px;
-}
-/* 结算结束页面 */
-.end-page{
+.victory-page{
     display:none;
-    padding-top:120px;
 }
-.end-page h2{
-    font-size:48px;
+.victory-page h2{
+    font-size:60px;
     color:#4cd964;
-    margin-bottom:20px;
+    letter-spacing:6px;
+    margin:40px 0;
 }
-.final-score{
-    font-size:28px;
-    margin-bottom:25px;
+.score-text{
+    font-size:26px;
+    margin-bottom:30px;
 }
-.rank-title{
-    font-size:24px;
-    margin:30px 0 15px;
-}
-.rank-list{
-    width:300px;
-    margin:0 auto;
-    font-size:20px;
-    text-align:left;
-    padding-left:80px;
-}
-.rank-item{
-    margin:8px 0;
-}
-/* 游戏主界面容器 */
-.game-wrap{
-    display:none;
+.restart-btn{
+    margin-right:15px;
 }
 </style>
 </head>
 <body>
-<!-- 难度选择页面 -->
-<div class="diff-page" id="diffPage">
-    <h2>选择游戏难度</h2>
-    <div class="diff-btn-group">
-        <button class="diff-btn" data-level="1">Lv1 简单</button>
-        <button class="diff-btn" data-level="2">Lv2 普通</button>
-        <button class="diff-btn" data-level="3">Lv3 困难</button>
-        <button class="diff-btn" data-level="4">Lv4 专家（靶标限时消失）</button>
-        <button class="diff-btn" data-level="5">Lv5 地狱（靶标快速消失）</button>
+<div class="container">
+    <!-- 游戏主界面 -->
+    <div id="gamePage">
+        <h1>猜数字游戏</h1>
+        <p class="tip-text">先输入自定义数字范围，输入猜测数字，系统提示偏大/偏小</p>
+        <p class="range-text" id="currentRange">当前候选区间：--</p>
+        <div class="input-box">
+            <input type="number" id="guessInput" placeholder="输入你猜测的数字">
+        </div>
+        <button id="submitBtn">提交猜测</button>
+        <div id="hint"></div>
     </div>
-    <a href="../" class="back-btn" style="margin-top:50px;">返回游戏大厅</a>
-</div>
 
-<!-- 游戏主界面 -->
-<div class="game-wrap" id="gameWrap">
-    <div class="info-bar">
-        <div>得分：<span id="score">0</span></div>
-        <div>剩余时间：<span id="time">90</span>s</div>
-        <div>当前难度：Lv<span id="nowLevel">1</span></div>
+    <!-- 胜利结算页面 -->
+    <div class="victory-page" id="victoryPage">
+        <h2>VICTORY</h2>
+        <p class="score-text">总猜测次数：<span id="scoreNum">0</span></p>
+        <button class="restart-btn" id="restartBtn">重新开局</button>
+        <a href="../" class="back-btn">返回游戏大厅</a>
     </div>
-    <canvas id="gameCanvas"></canvas>
-</div>
 
-<!-- 结算结束页面 -->
-<div class="end-page" id="endPage">
-    <h2>TIME UP！射击结束</h2>
-    <div class="final-score">本局得分：<span id="finalScore">0</span></div>
-    <button id="restartBtn">重新选难度开局</button>
-    <a href="../" class="back-btn">返回大厅</a>
-    <div class="rank-title">历史排行榜(前5)</div>
-    <div class="rank-list" id="rankList"></div>
+    <br>
+    <a href="../" class="back-btn">返回游戏大厅</a>
 </div>
 
 <script>
-// 全局常量
-const GAME_TIME = 90;
-const SCORE_PER_HIT = 100;
-const STORAGE_KEY = "shootGameRank";
-const TARGET_MIN_SIZE = 30;
-const TARGET_MAX_SIZE = 60;
-
-// 难度配置 1~5级
-const diffConfig = [
-    {},
-    { spawnGap:1200, maxTarget:3, autoDisappear:false, liveTime:0 }, // Lv1
-    { spawnGap:950,  maxTarget:4, autoDisappear:false, liveTime:0 }, // Lv2
-    { spawnGap:700,  maxTarget:6, autoDisappear:false, liveTime:0 }, // Lv3
-    { spawnGap:520,  maxTarget:8, autoDisappear:true, liveTime:2200 },//Lv4
-    { spawnGap:380,  maxTarget:10,autoDisappear:true, liveTime:1400 } //Lv5
-];
-
-// DOM
-const diffPage = document.getElementById("diffPage");
-const gameWrap = document.getElementById("gameWrap");
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const scoreDom = document.getElementById("score");
-const timeDom = document.getElementById("time");
-const levelDom = document.getElementById("nowLevel");
-const endPage = document.getElementById("endPage");
-const finalScoreDom = document.getElementById("finalScore");
-const rankListDom = document.getElementById("rankList");
+// 全局游戏数据
+let originMin, originMax, targetNum, guessCount;
+let nowMin, nowMax; // 当前缩小后的区间
+const gamePage = document.getElementById("gamePage");
+const victoryPage = document.getElementById("victoryPage");
+const guessInput = document.getElementById("guessInput");
+const submitBtn = document.getElementById("submitBtn");
+const hintText = document.getElementById("hint");
+const scoreNum = document.getElementById("scoreNum");
 const restartBtn = document.getElementById("restartBtn");
-const diffBtns = document.querySelectorAll(".diff-btn");
+const rangeDom = document.getElementById("currentRange");
 
-// 游戏变量
-let score = 0;
-let timeLeft = GAME_TIME;
-let gameRunning = false;
-let gameTimer = null;
-let spawnTimer = null;
-let mouseX = 0;
-let mouseY = 0;
-let targetList = [];
-let currentLevel = 1;
-let cfg = diffConfig[1];
+// 初始化游戏，获取自定义区间
+function initGame(){
+    guessCount = 0;
+    hintText.textContent = "";
+    guessInput.value = "";
+    gamePage.style.display = "block";
+    victoryPage.style.display = "none";
 
-// 全屏画布适配
-function resizeCanvas(){
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - 46;
-}
-window.addEventListener("resize", resizeCanvas);
-
-// 靶标类（新增自动消失计时器）
-class Target {
-    constructor() {
-        this.size = TARGET_MIN_SIZE + Math.random() * (TARGET_MAX_SIZE - TARGET_MIN_SIZE);
-        this.x = Math.random() * (canvas.width - this.size);
-        this.y = Math.random() * (canvas.height - this.size);
-        this.createTime = Date.now();
-    }
-    // 判断是否超时消失
-    isTimeout(){
-        if(!cfg.autoDisappear) return false;
-        return Date.now() - this.createTime > cfg.liveTime;
-    }
-}
-
-// 绘制十字准星
-function drawCrosshair() {
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
-    const crossLen = 12;
-    ctx.beginPath();
-    ctx.moveTo(mouseX - crossLen, mouseY);
-    ctx.lineTo(mouseX + crossLen, mouseY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(mouseX, mouseY - crossLen);
-    ctx.lineTo(mouseX, mouseY + crossLen);
-    ctx.stroke();
-}
-
-// 绘制所有靶标，过滤超时靶标
-function drawTargets() {
-    ctx.fillStyle = "#ff3333";
-    for(let i = targetList.length - 1; i >= 0; i--){
-        const t = targetList[i];
-        if(t.isTimeout()){
-            targetList.splice(i,1);
-            continue;
+    // 弹窗输入最小值
+    let min = null;
+    while(true){
+        let inputMin = prompt("请输入数字范围【最小值】：");
+        if(inputMin === null){
+            alert("取消输入将返回大厅页面");
+            window.location.href = "../";
+            return;
         }
-        ctx.fillRect(t.x, t.y, t.size, t.size);
+        min = parseInt(inputMin);
+        if(!isNaN(min)) break;
+        alert("请输入有效的整数！");
     }
-}
 
-// 生成新靶标
-function spawnTarget() {
-    if (!gameRunning) return;
-    targetList.push(new Target());
-    if (targetList.length > cfg.maxTarget) targetList.shift();
-}
-
-// 射击判定
-function shoot() {
-    if (!gameRunning) return;
-    for (let i = targetList.length - 1; i >= 0; i--) {
-        const t = targetList[i];
-        if (mouseX >= t.x && mouseX <= t.x + t.size && mouseY >= t.y && mouseY <= t.y + t.size) {
-            score += SCORE_PER_HIT;
-            scoreDom.textContent = score;
-            targetList.splice(i, 1);
-            break;
+    // 弹窗输入最大值
+    let max = null;
+    while(true){
+        let inputMax = prompt("请输入数字范围【最大值】，必须大于最小值"+min);
+        if(inputMax === null){
+            alert("取消输入将返回大厅页面");
+            window.location.href = "../";
+            return;
         }
+        max = parseInt(inputMax);
+        if(!isNaN(max) && max > min) break;
+        alert("输入无效！必须是整数且大于最小值"+min);
     }
+
+    originMin = min;
+    originMax = max;
+    // 初始化当前可猜测区间
+    nowMin = originMin;
+    nowMax = originMax;
+    // 生成区间内随机目标数字
+    targetNum = Math.floor(Math.random()*(originMax - originMin + 1)) + originMin;
+    updateRangeText();
 }
 
-// 游戏渲染循环
-function renderLoop() {
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawTargets();
-    drawCrosshair();
-    requestAnimationFrame(renderLoop);
+// 更新页面上当前区间文字
+function updateRangeText(){
+    rangeDom.textContent = `当前候选区间：${nowMin} ~ ${nowMax}`;
 }
 
-// 倒计时
-function startCountDown() {
-    gameTimer = setInterval(() => {
-        timeLeft--;
-        timeDom.textContent = timeLeft;
-        if (timeLeft <= 0) gameOver();
-    }, 1000);
-}
-
-// 生成靶标循环
-function startSpawnLoop() {
-    spawnTimer = setInterval(spawnTarget, cfg.spawnGap);
-}
-
-// 游戏结束
-function gameOver() {
-    gameRunning = false;
-    clearInterval(gameTimer);
-    clearInterval(spawnTimer);
-    saveScoreToRank(score);
-    finalScoreDom.textContent = score;
-    gameWrap.style.display = "none";
-    endPage.style.display = "block";
-    renderRank();
-}
-
-// 读取排行榜
-function getRankData() {
-    const str = localStorage.getItem(STORAGE_KEY);
-    return str ? JSON.parse(str) : [];
-}
-
-// 保存分数，保留前5名
-function saveScoreToRank(newScore) {
-    let arr = getRankData();
-    arr.push(newScore);
-    arr.sort((a, b) => b - a);
-    arr = arr.slice(0, 5);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
-}
-
-// 渲染排行榜
-function renderRank() {
-    const arr = getRankData();
-    rankListDom.innerHTML = "";
-    if (arr.length === 0) {
-        rankListDom.innerHTML = "<div class='rank-item'>暂无射击记录</div>";
+// 提交猜测逻辑
+function submitGuess(){
+    const val = parseInt(guessInput.value.trim());
+    if(isNaN(val)){
+        hintText.textContent = "请输入合法数字！";
         return;
     }
-    arr.forEach((s, idx) => {
-        let div = document.createElement("div");
-        div.className = "rank-item";
-        div.textContent = `第${idx + 1}名：${s} 分`;
-        rankListDom.appendChild(div);
-    });
+    // 超出当前缩小区间直接提示
+    if(val < nowMin || val > nowMax){
+        hintText.textContent = `无效！当前数字只在 ${nowMin} ~ ${nowMax} 之间`;
+        return;
+    }
+    guessCount++;
+    if(val > targetNum){
+        hintText.textContent = "猜大了！目标数字更小";
+        // 缩小上限
+        nowMax = val - 1;
+        updateRangeText();
+    }else if(val < targetNum){
+        hintText.textContent = "猜小了！目标数字更大";
+        // 缩小下限
+        nowMin = val + 1;
+        updateRangeText();
+    }else{
+        // 猜对，切换胜利结算页面
+        scoreNum.textContent = guessCount;
+        gamePage.style.display = "none";
+        victoryPage.style.display = "block";
+        return;
+    }
+    guessInput.value = "";
 }
 
-// 重置开局（指定难度）
-function startGame(level) {
-    currentLevel = level;
-    cfg = diffConfig[level];
-    score = 0;
-    timeLeft = GAME_TIME;
-    targetList = [];
-    scoreDom.textContent = score;
-    timeDom.textContent = timeLeft;
-    levelDom.textContent = level;
-
-    diffPage.style.display = "none";
-    endPage.style.display = "none";
-    gameWrap.style.display = "block";
-    resizeCanvas();
-
-    gameRunning = true;
-    startCountDown();
-    startSpawnLoop();
-}
-
-// 鼠标移动追踪准星
-canvas.addEventListener("mousemove", e => {
-    const rect = canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+// 绑定按钮事件
+submitBtn.addEventListener("click", submitGuess);
+guessInput.addEventListener("keydown", e=>{
+    if(e.key === "Enter") submitGuess();
 });
+restartBtn.addEventListener("click", initGame);
 
-// 鼠标左键射击
-canvas.addEventListener("mousedown", e => {
-    if (e.button === 0) shoot();
-});
-
-// 难度按钮绑定
-diffBtns.forEach(btn=>{
-    btn.addEventListener("click",()=>{
-        const lv = Number(btn.dataset.level);
-        startGame(lv);
-    })
-})
-
-// 返回选难度
-restartBtn.addEventListener("click", ()=>{
-    diffPage.style.display = "block";
-    endPage.style.display = "none";
-})
-
-window.onload = () => {
-    resizeCanvas();
-    renderLoop();
-};
+// 页面加载自动初始化游戏
+window.onload = initGame;
 </script>
 </body>
 </html>
